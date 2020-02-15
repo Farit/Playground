@@ -64,10 +64,12 @@ def process_srt_file(srt_file_path):
 
 def main(audio_file_path, srt_file_path, output_dir, audio_format='mp3'):
     srt_data_dict: dict = process_srt_file(srt_file_path)
+    silence_audio_file = AudioSegment.from_mp3('silence_1_min.mp3')
+    silence_2_seconds = silence_audio_file[:2000]
     audio_file = getattr(AudioSegment, f'from_{audio_format}')(audio_file_path)
     os.mkdir(output_dir)
 
-    delta_threshold = 5000
+    delta_threshold = 1000
     srt_data_list: list = list(srt_data_dict.items())
     srt_data_list.sort(key=lambda i: int(i[0]))
 
@@ -80,8 +82,9 @@ def main(audio_file_path, srt_file_path, output_dir, audio_format='mp3'):
                 srt_data_list[ind-1][1]['end_time_str'][-1]
             )
             delta = current_start_time - previous_end_time
-            delta = delta if delta < delta_threshold else delta_threshold
-            start_time = current_start_time - (delta // 2)
+            if delta > delta_threshold:
+                delta = delta_threshold
+            start_time = current_start_time - delta + 10
         else:
             start_time = current_start_time
 
@@ -93,12 +96,17 @@ def main(audio_file_path, srt_file_path, output_dir, audio_format='mp3'):
                 srt_data_list[ind+1][1]['start_time_str'][0]
             )
             delta = next_start_time - current_end_time
-            delta = delta if delta < delta_threshold else delta_threshold
-            end_time = current_end_time + (delta // 2)
+            if delta > delta_threshold:
+                delta = delta_threshold
+            end_time = current_end_time + delta - 10
         else:
             end_time = current_end_time
 
-        audio_slice = audio_file[start_time:end_time + 1]
+        audio_slice = (
+            silence_2_seconds +
+            audio_file[start_time:end_time + 1] +
+            silence_2_seconds
+        )
         audio_slice.export(
             f'{output_dir}/{srt_line}.{audio_format}',
             format=audio_format
